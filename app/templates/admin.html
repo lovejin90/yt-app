@@ -1,0 +1,121 @@
+{% extends "base.html" %} {% block content %}
+<div class="container px-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="card-title mb-0">API 키 관리</h2>
+          </div>
+
+          {% with messages = get_flashed_messages(with_categories=true) %} {% if
+          messages %} {% for category, message in messages %}
+          <div
+            class="alert alert-{{ category }} alert-dismissible fade show"
+            role="alert"
+          >
+            {{ message }}
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="alert"
+              aria-label="Close"
+            ></button>
+          </div>
+          {% endfor %} {% endif %} {% endwith %}
+
+          <div class="mb-4">
+            <h3>새 API 키 추가</h3>
+            <form
+              action="{{ url_for('main.add_key') }}"
+              method="POST"
+              class="mb-4"
+            >
+              <div class="mb-3">
+                <label for="key" class="form-label">API 키</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="key"
+                  name="key"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="description" class="form-label">설명</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="description"
+                  name="description"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">추가</button>
+            </form>
+          </div>
+
+          <div>
+            <h3>등록된 API 키 목록</h3>
+            {% if api_keys %} {% for key in api_keys %}
+            <div class="card mb-3">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h5 class="card-title mb-1">{{ key.description }}</h5>
+                    <p class="card-text text-muted small mb-0">
+                      생성일: {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </p>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button
+                      class="btn {% if key.is_active %}btn-success{% else %}btn-secondary{% endif %}"
+                      onclick="toggleKey({{ key.id }})"
+                    >
+                      {% if key.is_active %}활성{% else %}비활성{% endif %}
+                    </button>
+                    <form
+                      action="{{ url_for('main.delete_key', key_id=key.id) }}"
+                      method="POST"
+                      class="d-inline"
+                    >
+                      <button
+                        type="submit"
+                        class="btn btn-danger"
+                        onclick="return confirm('정말 삭제하시겠습니까?')"
+                      >
+                        삭제
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %} {% else %}
+            <p class="text-muted">등록된 API 키가 없습니다.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleKey(keyId) {
+    fetch(`/admin/toggle_key/${keyId}`, {
+      method: "POST",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.status === "success") {
+          location.reload();
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        alert("API 키 상태 변경 중 오류가 발생했습니다.");
+      });
+  }
+</script>
+{% endblock %}

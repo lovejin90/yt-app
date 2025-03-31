@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>API 키 관리</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Noto Sans KR", sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f9f9f9;
+      }
+
+      .header {
+        background: linear-gradient(to right, #ff4b2b, #ff9a44, #ffd644);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s ease;
+      }
+
+      .form-control:focus {
+        outline: none;
+        border-color: #ff9a44;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-primary {
+        background: linear-gradient(to right, #ff4b2b, #ff9a44);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 74, 43, 0.2);
+      }
+
+      .api-keys {
+        margin-top: 40px;
+      }
+
+      .api-key-item {
+        background: #fff;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .api-key-info {
+        flex-grow: 1;
+      }
+
+      .api-key-description {
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+
+      .api-key-meta {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .api-key-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn-toggle {
+        background: #e0e0e0;
+        color: #333;
+      }
+
+      .btn-toggle.active {
+        background: #4caf50;
+        color: white;
+      }
+
+      .btn-delete {
+        background: #ff4b2b;
+        color: white;
+      }
+
+      .flash-messages {
+        margin-bottom: 20px;
+      }
+
+      .flash {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+
+      .flash-success {
+        background-color: #4caf50;
+        color: white;
+      }
+
+      .flash-error {
+        background-color: #ff4b2b;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>API 키 관리</h1>
+    </div>
+
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %} {% endwith %}
+
+      <div class="card">
+        <h2>새 API 키 추가</h2>
+        <form action="{{ url_for('main.add_key') }}" method="POST">
+          <div class="form-group">
+            <label for="key">API 키</label>
+            <input
+              type="text"
+              id="key"
+              name="key"
+              class="form-control"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="description">설명</label>
+            <input
+              type="text"
+              id="description"
+              name="description"
+              class="form-control"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-primary">추가</button>
+        </form>
+      </div>
+
+      <div class="api-keys">
+        <h2>등록된 API 키 목록</h2>
+        {% for key in api_keys %}
+        <div class="api-key-item">
+          <div class="api-key-info">
+            <div class="api-key-description">{{ key.description }}</div>
+            <div class="api-key-meta">
+              키: {{ key.key }}
+              <br />
+              생성일: {{ key.created_at.strftime('%Y-%m-%d %H:%M') }} {% if
+              key.last_used %}
+              <br />
+              마지막 사용: {{ key.last_used.strftime('%Y-%m-%d %H:%M') }} {%
+              endif %}
+            </div>
+          </div>
+          <div class="api-key-actions">
+            <button
+              class="btn btn-toggle {% if key.is_active %}active{% endif %}"
+              onclick="toggleKey({{ key.id }})"
+              data-key-id="{{ key.id }}"
+            >
+              {% if key.is_active %}활성{% else %}비활성{% endif %}
+            </button>
+            <form
+              action="{{ url_for('main.delete_key', key_id=key.id) }}"
+              method="POST"
+              style="display: inline"
+            >
+              <button
+                type="submit"
+                class="btn btn-delete"
+                onclick="return confirm('정말 삭제하시겠습니까?')"
+              >
+                삭제
+              </button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <p>등록된 API 키가 없습니다.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <script>
+      async function toggleKey(keyId) {
+        try {
+          const response = await fetch(`/admin/toggle_key/${keyId}`, {
+            method: "POST",
+          });
+          const data = await response.json();
+
+          if (data.status === "success") {
+            const button = document.querySelector(
+              `button[data-key-id="${keyId}"]`
+            );
+            button.classList.toggle("active");
+            button.textContent = data.is_active ? "활성" : "비활성";
+          }
+        } catch (error) {
+          console.error("Error toggling key:", error);
+        }
+      }
+    </script>
+  </body>
+</html>

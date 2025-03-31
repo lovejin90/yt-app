@@ -1,0 +1,21 @@
+version: "3"
+
+services:
+  youtube-app:
+    build: .
+    container_name: youtube-app
+    ports:
+      - "5000:5000"
+      - "5022:22" # SSH 포트
+    volumes:
+      - .:/app # 프로젝트 전체 폴더
+      - ./instance:/app/instance # 데이터베이스
+      - ./logs:/app/logs # 로그 파일
+      - /app/venv # venv 폴더 제외
+      - /app/__pycache__ # 캐시 파일 제외
+    restart: unless-stopped
+    environment:
+      - FLASK_APP=app
+      - FLASK_ENV=production
+      # SSH 접속 정보 (실제 배포 시 변경 필요)
+      - SSH_ROOT_PASSWORD=yourpassword

@@ -1,0 +1,431 @@
+{% extends "base.html" %} {% block content %}
+<div class="container px-4">
+  <!-- API 키 알림 모달 추가 -->
+  <div
+    class="modal fade"
+    id="apiKeyModal"
+    tabindex="-1"
+    aria-labelledby="apiKeyModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="apiKeyModalLabel">API 키 알림</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          활성화된 API 키가 없습니다. 관리자 페이지에서 API 키를 활성화해주세요.
+        </div>
+        <div class="modal-footer">
+          <a href="/admin" class="btn btn-primary">관리자 페이지로 이동</a>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex flex-column mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="card-title mb-0">인기 키워드</h2>
+              <button
+                class="btn btn-outline-primary btn-sm"
+                onclick="toggleKeywordView()"
+              >
+                <span id="expandBtnText">펼쳐보기</span>
+              </button>
+            </div>
+            <div id="trendingKeywords" class="trending-keywords">
+              <!-- 인기 키워드가 여기에 표시됩니다 -->
+            </div>
+          </div>
+          <div class="input-group mb-2">
+            <input
+              type="text"
+              id="searchInput"
+              class="form-control"
+              placeholder="검색어를 입력하세요"
+              onkeypress="if(event.keyCode==13) searchVideos()"
+            />
+            <button class="btn btn-primary" onclick="searchVideos()">
+              검색
+            </button>
+          </div>
+          <div id="recentSearches" class="recent-searches">
+            <div class="d-flex align-items-center">
+              <small class="text-muted me-2">최근 검색어:</small>
+              <div id="recentSearchTags" class="recent-search-tags"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8 mb-4">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+          <h3 class="card-title">검색 결과</h3>
+          <div id="searchResults" class="list-group flex-grow-1">
+            <!-- 검색 결과가 여기에 표시됩니다 -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+          <h3 class="card-title">인기 영상</h3>
+          <div id="trendingVideos" class="list-group flex-grow-1">
+            <!-- 인기 영상이 여기에 표시됩니다 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allKeywords = [];
+  let currentKeywordIndex = 0;
+  let keywordInterval;
+  let isExpanded = false;
+  let apiKeyModal;
+
+  function updateKeywordDisplay() {
+    const keywordsDiv = document.getElementById("trendingKeywords");
+
+    if (allKeywords.length === 0) return;
+
+    if (isExpanded) {
+      // 모든 키워드 표시
+      keywordsDiv.innerHTML = "";
+      allKeywords.forEach((item, index) => {
+        const keywordDiv = document.createElement("div");
+        keywordDiv.className = "keyword-item";
+        keywordDiv.onclick = () => {
+          searchKeyword(item.keyword);
+          if (isExpanded) {
+            toggleKeywordView(); // 펼쳐진 상태에서 키워드 클릭 시 자동으로 접기
+          }
+        };
+
+        keywordDiv.innerHTML = `
+          <div class="d-flex align-items-center w-100 justify-content-between">
+            <div class="d-flex align-items-center">
+              <span class="keyword-rank">${index + 1}</span>
+              <span class="keyword-text">${item.keyword}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge bg-primary rounded-pill me-2">${item.count}</span>
+              ${index === 0 ? '<span class="badge bg-danger">NEW</span>' : ''}
+            </div>
+          </div>
+        `;
+
+        keywordsDiv.appendChild(keywordDiv);
+      });
+    } else {
+      // 현재 키워드만 표시
+      const item = allKeywords[currentKeywordIndex];
+      keywordsDiv.innerHTML = "";
+      const keywordDiv = document.createElement("div");
+      keywordDiv.className = "keyword-item active";
+      keywordDiv.onclick = () => searchKeyword(item.keyword);
+
+      keywordDiv.innerHTML = `
+        <div class="d-flex align-items-center w-100 justify-content-between">
+          <div class="d-flex align-items-center">
+            <span class="keyword-rank">${currentKeywordIndex + 1}</span>
+            <span class="keyword-text">${item.keyword}</span>
+          </div>
+          <div class="d-flex align-items-center">
+            <span class="badge bg-primary rounded-pill me-2">${item.count}</span>
+            ${currentKeywordIndex === 0 ? '<span class="badge bg-danger">NEW</span>' : ''}
+          </div>
+        </div>
+      `;
+
+      keywordsDiv.appendChild(keywordDiv);
+    }
+  }
+
+  function toggleKeywordView() {
+    isExpanded = !isExpanded;
+    const keywordsDiv = document.getElementById("trendingKeywords");
+    const expandBtnText = document.getElementById("expandBtnText");
+    
+    keywordsDiv.style.maxHeight = isExpanded ? "none" : "60px";
+    expandBtnText.textContent = isExpanded ? "접기" : "펼쳐보기";
+    keywordsDiv.classList.toggle("expanded", isExpanded);
+
+    if (isExpanded) {
+      if (keywordInterval) {
+        clearInterval(keywordInterval);
+        keywordInterval = null;
+      }
+    } else {
+      startKeywordRotation();
+    }
+
+    updateKeywordDisplay();
+  }
+
+  function startKeywordRotation() {
+    if (keywordInterval) {
+      clearInterval(keywordInterval);
+    }
+
+    if (!isExpanded) {
+      keywordInterval = setInterval(() => {
+        currentKeywordIndex = (currentKeywordIndex + 1) % allKeywords.length;
+        updateKeywordDisplay();
+      }, 2000); // 2초마다 변경
+    }
+  }
+
+  function displaySearchResults(data) {
+    const searchResults = document.getElementById("searchResults");
+
+    if (!data.items || data.items.length === 0) {
+      searchResults.innerHTML =
+        '<p class="text-muted">검색 결과가 없습니다.</p>';
+      return;
+    }
+
+    const listGroup = document.createElement("div");
+    listGroup.className = "list-group";
+
+    data.items.forEach((video) => {
+      const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+      listGroup.innerHTML += `
+            <a href="${videoUrl}" 
+               class="list-group-item" 
+               target="_blank">
+                <div class="d-flex w-100 justify-content-between">
+                  <div class="d-flex">
+                    <div class="video-thumbnail me-3">
+                      <img src="${video.thumbnail}" 
+                           alt="${video.title}" 
+                           class="rounded"
+                           style="width: 120px; height: 68px; object-fit: cover;">
+                    </div>
+                    <div class="video-info flex-grow-1" style="min-width: 0;">
+                      <h6 class="video-title mb-1">${video.title}</h6>
+                      <p class="channel-name mb-1">${video.channelTitle}</p>
+                      <small class="text-muted d-flex align-items-center">
+                        <span class="me-2">조회수: ${formatViews(video.viewCount)}</span>
+                        <span>${formatDate(video.publishedAt)}</span>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+            </a>
+        `;
+    });
+
+    searchResults.innerHTML = ""; // 기존 내용을 모두 지우고
+    searchResults.appendChild(listGroup); // 새로운 결과만 추가
+  }
+
+  function formatViews(views) {
+    if (views >= 10000) {
+      return Math.floor(views / 10000) + "만회";
+    } else if (views >= 1000) {
+      return Math.floor(views / 1000) + "천회";
+    }
+    return views + "회";
+  }
+
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) {
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      if (hours === 0) {
+        const minutes = Math.floor(diff / (1000 * 60));
+        return `${minutes}분 전`;
+      }
+      return `${hours}시간 전`;
+    } else if (days < 7) {
+      return `${days}일 전`;
+    } else {
+      return date.toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  }
+
+  function searchKeyword(keyword) {
+    document.getElementById("searchInput").value = keyword;
+    searchVideos();
+  }
+
+  async function searchVideos() {
+    const searchInput = document.getElementById("searchInput");
+    const query = searchInput.value.trim();
+
+    if (!query) {
+      alert("검색어를 입력해주세요.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+
+      if (data.error) {
+        if (data.error === "API key not found") {
+          showApiKeyModal();
+        } else {
+          alert(data.error);
+        }
+        return;
+      }
+
+      displaySearchResults(data);
+      loadRecentSearches(); // 검색 후 최근 검색어 업데이트
+    } catch (error) {
+      console.error("검색 중 오류 발생:", error);
+      alert("검색 중 오류가 발생했습니다.");
+    }
+  }
+
+  function loadTrendingVideos() {
+    fetch("/trending-videos")
+      .then((response) => response.json())
+      .then((data) => {
+        const videosDiv = document.getElementById("trendingVideos");
+        videosDiv.innerHTML = "";
+
+        data.forEach((video) => {
+          videosDiv.innerHTML += `
+            <a href="${video.link}" target="_blank" class="list-group-item list-group-item-action">
+              <div class="d-flex w-100">
+                <div class="video-thumbnail me-3">
+                  <img src="${video.thumbnail}" 
+                       alt="${video.title}" 
+                       class="rounded"
+                       style="width: 120px; height: 68px; object-fit: cover;">
+                </div>
+                <div class="video-info flex-grow-1" style="min-width: 0;">
+                  <h6 class="video-title mb-1">${video.title}</h6>
+                  <p class="channel-name mb-1">${video.channel_name}</p>
+                  <small class="text-muted d-flex align-items-center">
+                    <span class="me-2">조회수: ${formatViews(video.views)}</span>
+                    <span>${video.upload_date}</span>
+                  </small>
+                </div>
+              </div>
+            </a>
+          `;
+        });
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  }
+
+  function loadTrendingKeywords() {
+    fetch("/trending-keywords")
+      .then((response) => response.json())
+      .then((data) => {
+        allKeywords = data;
+        updateKeywordDisplay();
+        startKeywordRotation();
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  }
+
+  // API 키 상태 체크 함수 수정
+  function checkApiKeyStatus() {
+    fetch("/api/check-key")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.hasActiveKey) {
+          if (!apiKeyModal) {
+            apiKeyModal = new bootstrap.Modal(
+              document.getElementById("apiKeyModal")
+            );
+          }
+          apiKeyModal.show();
+        }
+      });
+  }
+
+  // 최근 검색어 로드 함수
+  async function loadRecentSearches() {
+    try {
+      const response = await fetch("/recent-searches");
+      const searches = await response.json();
+
+      const tagsContainer = document.getElementById("recentSearchTags");
+      tagsContainer.innerHTML = "";
+
+      searches.forEach((search) => {
+        const tag = document.createElement("div");
+        tag.className = "search-tag";
+        tag.innerHTML = `
+          <span class="tag-text" onclick="searchKeyword('${search.keyword}')">${search.keyword}</span>
+          <span class="close-btn" onclick="deleteRecentSearch(${search.id}, event)">×</span>
+        `;
+        tagsContainer.appendChild(tag);
+      });
+    } catch (error) {
+      console.error("최근 검색어 로드 실패:", error);
+    }
+  }
+
+  async function deleteRecentSearch(searchId, event) {
+    event.stopPropagation(); // 이벤트 버블링 방지
+    try {
+      const response = await fetch(`/recent-searches/delete/${searchId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        loadRecentSearches(); // 목록 새로고침
+      }
+    } catch (error) {
+      console.error("검색어 삭제 실패:", error);
+    }
+  }
+
+  // 페이지 로드 시 API 키 상태 체크 및 최근 검색어 로드
+  document.addEventListener("DOMContentLoaded", function () {
+    checkApiKeyStatus();
+    loadTrendingKeywords();
+    loadTrendingVideos();
+    loadRecentSearches();
+  });
+
+  // 페이지를 떠날 때 인터벌 정리
+  window.addEventListener("beforeunload", () => {
+    if (keywordInterval) {
+      clearInterval(keywordInterval);
+    }
+  });
+</script>
+{% endblock %}
