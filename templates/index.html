@@ -76,10 +76,6 @@
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         margin-bottom: 30px;
       }
-/* 주석 */
-/* 테스트테스트테스트테스트테스트테스트테스트 */
-/* 테스트테스트테스트테스트테스트테스트테스트 */
-/* 테스트테스트테스트테스트테스트테스트테스트 */
       .section-title {
         font-size: 24px;
         font-weight: 700;
@@ -449,6 +445,34 @@
       let currentKeywords = [];
       let currentKeywordIndex = 0;
 
+      // YouTube 앱 링크 생성 함수
+      function getYoutubeAppLink(webUrl) {
+        // 일반 YouTube URL에서 동영상 ID 추출
+        const videoId = webUrl.split('watch?v=')[1];
+        // 모바일 기기에서는 youtu.be 스키마 사용
+        return `vnd.youtube://${videoId}`;
+      }
+
+      // 비디오 카드 생성 함수
+      function createVideoCard(video) {
+        return `
+          <div class="video-card">
+            <div class="video-info">
+              <div class="video-title">
+                <a href="${getYoutubeAppLink(video.link)}" target="_blank">
+                  ${video.title}
+                </a>
+              </div>
+              <div class="video-meta">
+                <div class="channel-name">${video.channel_name}</div>
+                <div class="views-count">조회수 ${video.views.toLocaleString()}회</div>
+                <div class="upload-date">${video.upload_date}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       // API 키 상태 확인
       async function checkApiKeyStatus() {
         try {
@@ -532,27 +556,7 @@
           }
           const videos = await response.json();
           const container = document.getElementById("trendingVideos");
-
-          container.innerHTML = videos
-            .map(
-              (video) => `
-            <div class="video-card">
-              <div class="video-info">
-                <div class="video-title">
-                  <a href="${video.link}" target="_blank">
-                    ${video.title}
-                  </a>
-                </div>
-                <div class="video-meta">
-                  <div class="channel-name">${video.channel_name}</div>
-                  <div class="views-count">조회수 ${video.views.toLocaleString()}회</div>
-                  <div class="upload-date">${video.upload_date}</div>
-                </div>
-              </div>
-            </div>
-          `
-            )
-            .join("");
+          container.innerHTML = videos.map(video => createVideoCard(video)).join("");
         } catch (error) {
           console.error("Error fetching trending videos:", error);
         }
@@ -567,37 +571,14 @@
 
       async function searchKeyword(keyword) {
         try {
-          const response = await fetch(
-            `/search?topic=${encodeURIComponent(keyword)}`
-          );
+          const response = await fetch(`/search?topic=${encodeURIComponent(keyword)}`);
           const videos = await response.json();
           const container = document.getElementById("searchResultsGrid");
           const searchResults = document.getElementById("searchResults");
 
           // 검색 결과 섹션 표시
           searchResults.style.display = "block";
-
-          container.innerHTML = videos
-            .map(
-              (video) => `
-            <div class="video-card">
-              <div class="video-info">
-                <div class="video-title">
-                  <a href="${video.link}" target="_blank">
-                    ${video.title}
-                  </a>
-                </div>
-                <div class="video-meta">
-                  <div class="channel-name">${video.channel_name}</div>
-                  <div class="views-count">조회수 ${video.views.toLocaleString()}회</div>
-                  <div class="upload-date">${video.upload_date}</div>
-                </div>
-              </div>
-            </div>
-          `
-            )
-            .join("");
-
+          container.innerHTML = videos.map(video => createVideoCard(video)).join("");
           document.getElementById("searchInput").value = "";
         } catch (error) {
           console.error("Error searching videos:", error);
